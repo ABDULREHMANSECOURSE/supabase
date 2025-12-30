@@ -3,46 +3,77 @@ import { supabase } from "../supabaseClient";
 
 const Profile = ({ user }) => {
     const [username, setUsername] = useState("");
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
 
+    // 🔁 Load profile data
     useEffect(() => {
-        getProfile();
-    }, []);
+        const getProfile = async () => {
+            const { data, error } = await supabase
+                .from("profiles")
+                .select("username")
+                .eq("id", user.id)  // user.id = Supabase auth UUID
+                .single();
 
-    const getProfile = async () => {
+            if (!error && data) {
+                setUsername(data.username);
+            }
+        };
+
+        getProfile();
+    }, [user.id]);
+
+    // ✏️ Update username
+    const updateUsername = async () => {
+        if (!username) {
+            alert("Username empty hai");
+            return;
+        }
+
         setLoading(true);
 
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from("profiles")
-            .select("username")
-            .eq("id", user.id)
-            .single();
+            .update({ username })
+            .eq("id", user.id);
 
         setLoading(false);
 
         if (error) {
-            alert(error.message);
+            if (error.code === "23505") {
+                alert("Username already taken ❌");
+            } else {
+                alert(error.message);
+            }
         } else {
-            setUsername(data.username);
+            alert("Username updated ✅");
         }
     };
 
-    const logout = async () => {
-        await supabase.auth.signOut();
-    };
-
-    if (loading) {
-        return <p>⏳ Loading profile...</p>;
-    }
-
     return (
         <div style={{ padding: 20 }}>
-            <h2>👤 Profile</h2>
+            <h3>👤 Profile</h3>
 
-            <p><b>Username:</b> {username}</p>
+            <p><b>Supabase UID:</b> {user.id}</p>  {/* auth-generated UUID */}
             <p><b>Email:</b> {user.email}</p>
 
-            <button onClick={logout}>Logout</button>
+            <br />
+
+            <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+            />
+            <br /><br />
+
+            <button onClick={updateUsername} disabled={loading}>
+                {loading ? "Updating..." : "Update Username"}
+            </button>
+
+            <br /><br />
+
+            <button onClick={() => supabase.auth.signOut()}>
+                Logout
+            </button>
         </div>
     );
 };
